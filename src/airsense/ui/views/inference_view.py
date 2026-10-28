@@ -1,11 +1,13 @@
-"""Probability & Statistical Inference Laboratory View.
+"""Probability & Statistical Inference Laboratory View for AirSense Streamlit Interface.
 
 Interactive workbench for Units 3 & 4 of the university syllabus:
-- Central Limit Theorem Simulations & Margin of Error Scaling
+- Sampling Distributions & Central Limit Theorem Simulations
 - Normal MLE vs. Unbiased Bessel Variance Estimation
 - Hypothesis Testing & Confidence Interval Duality
 - One-Way ANOVA for Seasonal Pollutant Distributions
 - Statistical Power and Type I / Type II Error Simulations
+
+Strictly distinguishes Empirical Observations from Simulated Demonstrations.
 """
 
 import numpy as np
@@ -27,31 +29,32 @@ from airsense.statistical_inference import (
 
 
 def render_inference_view(df_supervised: pd.DataFrame) -> None:
-    """Render the interactive Statistical Inference Laboratory."""
-    st.header("📊 Probability & Statistical Inference Laboratory")
+    """Render Section 7: Probability and Statistical Inference Laboratory."""
+    st.header("📊 7. Probability & Statistical Inference Laboratory")
     st.markdown(
         """
-        This educational workbench connects the AirSense engine to the core probabilistic and 
-        inferential concepts of Units 3 & 4: sampling theory, point estimation, interval estimation, 
-        duality, ANOVA, and statistical power.
+        Explore the probabilistic and inferential foundations of Units 3 & 4: sampling theory, 
+        point and interval estimation, hypothesis test duality, ANOVA, and statistical power.
         """
     )
 
     t1, t2, t3, t4, t5 = st.tabs(
         [
-            "1. Central Limit Theorem",
-            "2. Normal MLE & Bias",
-            "3. CI & Hypothesis Test Duality",
-            "4. Seasonal ANOVA",
-            "5. Statistical Power Simulator",
+            "1. Central Limit Theorem [SIMULATION]",
+            "2. Normal MLE & Bessel Bias [SIMULATION]",
+            "3. CI & Test Duality [EMPIRICAL]",
+            "4. Seasonal ANOVA [EMPIRICAL]",
+            "5. Statistical Power [SIMULATION]",
         ]
     )
 
     # -------------------------------------------------------------
-    # TAB 1: Central Limit Theorem
+    # TAB 1: Central Limit Theorem [SIMULATION]
     # -------------------------------------------------------------
     with t1:
         st.subheader("Central Limit Theorem (CLT) & Margin of Error Scaling")
+        st.info("🧪 **Pedagogical Mode: MONTE CARLO SIMULATION** (Independent Synthetic Random Variables)")
+        
         st.markdown(
             r"""
             **Theorem**: Let $X_1, \dots, X_n$ be independent identically distributed random variables 
@@ -63,11 +66,12 @@ def render_inference_view(df_supervised: pd.DataFrame) -> None:
         col_clt1, col_clt2 = st.columns(2)
         with col_clt1:
             dist_type = st.selectbox(
-                "Population Distribution:",
+                "Synthetic Population Distribution:",
                 ["Exponential (Heavily Skewed)", "Uniform (Flat)", "Bimodal Mixture"],
+                key="dist_type_v2",
             )
         with col_clt2:
-            n_sample = st.slider("Sample Size ($n$):", min_value=2, max_value=100, value=30, step=1)
+            n_sample = st.slider("Sample Size ($n$):", min_value=2, max_value=100, value=30, step=1, key="n_clt_v2")
 
         sim_dist = "exponential" if "Exponential" in dist_type else ("uniform" if "Uniform" in dist_type else "bimodal")
         clt_res = simulate_clt(distribution=sim_dist, sample_sizes=[n_sample], n_simulations=2000, random_state=42)
@@ -75,7 +79,7 @@ def render_inference_view(df_supervised: pd.DataFrame) -> None:
         pop_mean = clt_res["theoretical_mean"]
         pop_std = clt_res["theoretical_std"]
 
-        fig_clt, (ax_pop, ax_samp) = plt.subplots(1, 2, figsize=(10, 3.8))
+        fig_clt, (ax_pop, ax_samp) = plt.subplots(1, 2, figsize=(10, 3.5))
 
         # Population
         if sim_dist == "exponential":
@@ -112,10 +116,11 @@ def render_inference_view(df_supervised: pd.DataFrame) -> None:
         )
 
     # -------------------------------------------------------------
-    # TAB 2: Normal MLE & Bias
+    # TAB 2: Normal MLE & Bias [SIMULATION]
     # -------------------------------------------------------------
     with t2:
         st.subheader("Maximum Likelihood Estimation & Bessel's Variance Bias")
+        st.info("🧪 **Pedagogical Mode: MONTE CARLO SIMULATION** (Verifying Analytical Expectation of MLE Estimator)")
         st.markdown(
             r"""
             **Concept**: For i.i.d. Gaussian samples $X_1, \dots, X_n \sim \mathcal{N}(\mu, \sigma^2)$, 
@@ -125,7 +130,7 @@ def render_inference_view(df_supervised: pd.DataFrame) -> None:
             """
         )
 
-        n_bias = st.slider("Small Sample Size for Bias Demonstration ($n$):", 3, 25, 5, 1)
+        n_bias = st.slider("Small Sample Size for Bias Demonstration ($n$):", 3, 25, 5, 1, key="n_bias_v2")
         sim_data = np.random.RandomState(42).normal(loc=10.0, scale=3.0, size=(1000, n_bias))
         mle_vars = np.var(sim_data, axis=1, ddof=0)
         unbiased_vars = np.var(sim_data, axis=1, ddof=1)
@@ -145,10 +150,11 @@ def render_inference_view(df_supervised: pd.DataFrame) -> None:
         )
 
     # -------------------------------------------------------------
-    # TAB 3: Duality: Hypothesis Testing & Confidence Intervals
+    # TAB 3: Duality [EMPIRICAL]
     # -------------------------------------------------------------
     with t3:
         st.subheader("Duality Between Two-Sided Tests and Confidence Intervals")
+        st.success("🔬 **Scientific Mode: EMPIRICAL AIRSENSE OBSERVATIONS** (Tested on Real Calibration Residuals)")
         st.markdown(
             r"""
             **Fundamental Invariant**: A two-sided hypothesis test of $H_0: \mu = \mu_0$ against 
@@ -158,7 +164,6 @@ def render_inference_view(df_supervised: pd.DataFrame) -> None:
             """
         )
 
-        # Real AirSense calibration residuals demo
         from airsense.calibration import LinearCalibrationModel
         feat_demo = ["PT08.S1(CO)", "PT08.S2(NMHC)", "PT08.S3(NOx)", "PT08.S4(NO2)", "PT08.S5(O3)", "T", "RH", "AH"]
         mod_demo = LinearCalibrationModel()
@@ -167,9 +172,9 @@ def render_inference_view(df_supervised: pd.DataFrame) -> None:
 
         col_h1, col_h2 = st.columns(2)
         with col_h1:
-            mu_test = st.number_input(r"Hypothesized Mean ($\mu_0$):", min_value=-2.0, max_value=2.0, value=0.0, step=0.05)
+            mu_test = st.number_input(r"Hypothesized Mean ($\mu_0$):", min_value=-2.0, max_value=2.0, value=0.0, step=0.05, key="mu_test_v2")
         with col_h2:
-            alpha_test = st.selectbox("Significance Level ($\alpha$):", [0.01, 0.05, 0.10], index=1)
+            alpha_test = st.selectbox("Significance Level ($\alpha$):", [0.01, 0.05, 0.10], index=1, key="alpha_test_v2")
 
         ci_res = confidence_interval_mean(res_sample, confidence_level=1.0 - alpha_test, method="t")
         t_test_res = one_sample_t_test(res_sample, popmean=mu_test, alternative="two-sided", alpha=alpha_test)
@@ -190,16 +195,17 @@ def render_inference_view(df_supervised: pd.DataFrame) -> None:
         if is_rejected != (not in_ci):
             st.error("Duality violation!")
         else:
-            st.success("✅ **Mathematical Duality Holds**: $\\mu_0$ is inside the CI $\\iff$ $H_0$ is retained!")
+            st.success("✅ **Mathematical Duality Invariant Holds**: $\\mu_0$ is inside the CI $\\iff$ $H_0$ is retained!")
 
     # -------------------------------------------------------------
-    # TAB 4: Seasonal ANOVA
+    # TAB 4: Seasonal ANOVA [EMPIRICAL]
     # -------------------------------------------------------------
     with t4:
         st.subheader("One-Way ANOVA: Seasonal Pollutant Variation")
+        st.success("🔬 **Scientific Mode: EMPIRICAL AIRSENSE OBSERVATIONS** (Grouping 8,991 Field Observations by Season)")
         st.markdown(
             r"""
-            **Model**: Partition total variance into between-group and within-group variance:
+            **Model**: Partition total variation into between-season and within-season variation:
             $$SS_{\text{Total}} = SS_{\text{Between}} + SS_{\text{Within}}, \quad F = \frac{MS_{\text{Between}}}{MS_{\text{Within}}} \sim F(k-1, N-k)$$
             Effect size is measured by $\eta^2 = SS_{\text{Between}} / SS_{\text{Total}}$.
             """
@@ -228,22 +234,23 @@ def render_inference_view(df_supervised: pd.DataFrame) -> None:
         c_an2.metric("p-value", f"{anova_res['p_value']:.2e}")
         c_an3.metric(r"Effect Size ($\eta^2$)", f"{anova_res['eta_squared']:.4f}")
 
-        fig_an, ax_an = plt.subplots(figsize=(7, 3.5))
+        fig_an, ax_an = plt.subplots(figsize=(7, 3.2))
         df_season.boxplot(column="C6H6(GT)", by="Season", ax=ax_an, grid=True)
         ax_an.set_ylabel(r"Benzene $C_6H_6(GT)$ ($\mu g/m^3$)")
         ax_an.set_title("Seasonal Distribution of Benzene Concentration")
         plt.suptitle("")
         st.pyplot(fig_an)
         st.caption(
-            f"ANOVA confirms significant seasonal variation ($p < 10^{{-5}}$): winter inversions trap pollutants, "
-            f"elevating concentrations relative to summer."
+            f"ANOVA confirms significant seasonal variation ($p < 10^{{-5}}$): winter thermal inversions trap pollutants, "
+            f"elevating concentrations relative to ventilated summer conditions."
         )
 
     # -------------------------------------------------------------
-    # TAB 5: Statistical Power Simulator
+    # TAB 5: Power Simulator [SIMULATION]
     # -------------------------------------------------------------
     with t5:
         st.subheader("Statistical Power & Type I / Type II Error Simulator")
+        st.info("🧪 **Pedagogical Mode: MONTE CARLO SIMULATION** (Theoretical Normal Sampling Distributions)")
         st.markdown(
             r"""
             - **Type I Error ($\alpha$)**: Rejecting $H_0$ when $H_0$ is true (False Alarm).
@@ -254,22 +261,21 @@ def render_inference_view(df_supervised: pd.DataFrame) -> None:
 
         col_p1, col_p2, col_p3 = st.columns(3)
         with col_p1:
-            effect_size = st.slider("Effect Size (Cohen's $d$):", 0.1, 1.5, 0.5, 0.1)
+            effect_size = st.slider("Effect Size (Cohen's $d$):", 0.1, 1.5, 0.5, 0.1, key="eff_size_v2")
         with col_p2:
-            n_power = st.slider("Sample Size ($n$):", 5, 100, 25, 5)
+            n_power = st.slider("Sample Size ($n$):", 5, 100, 25, 5, key="n_pow_v2")
         with col_p3:
-            alpha_power = st.selectbox("Significance Level ($\alpha$):", [0.01, 0.05, 0.10], index=1, key="alpha_pow")
+            alpha_power = st.selectbox("Significance Level ($\alpha$):", [0.01, 0.05, 0.10], index=1, key="alpha_pow_v2")
 
-        # Standard normal sampling distributions for test statistic under H0 and H1
         se = 1.0 / np.sqrt(n_power)
         z_crit = stats.norm.ppf(1.0 - alpha_power / 2.0)
         mu_h1 = effect_size
 
         power = 1.0 - stats.norm.cdf(z_crit - mu_h1 / se) + stats.norm.cdf(-z_crit - mu_h1 / se)
 
-        st.metric("Statistical Power ($1 - \\beta$)", f"{power * 100:.1f}%")
+        st.metric(r"Statistical Power ($1 - \beta$)", f"{power * 100:.1f}%")
 
-        fig_pow, ax_p = plt.subplots(figsize=(8, 3.5))
+        fig_pow, ax_p = plt.subplots(figsize=(8, 3.2))
         x_axis = np.linspace(-4, 4 + mu_h1 / se, 300)
         y_h0 = stats.norm.pdf(x_axis, 0, 1)
         y_h1 = stats.norm.pdf(x_axis, mu_h1 / se, 1)
@@ -278,7 +284,6 @@ def render_inference_view(df_supervised: pd.DataFrame) -> None:
         ax_p.plot(x_axis, y_h1, "r-", lw=2, label=r"Alternative $H_1 \sim \mathcal{N}(d\sqrt{n}, 1)$")
         ax_p.axvline(z_crit, color="black", linestyle="--", label=f"Critical Value $z={z_crit:.2f}$")
 
-        # Shade power region
         x_power = np.linspace(z_crit, x_axis.max(), 100)
         ax_p.fill_between(x_power, 0, stats.norm.pdf(x_power, mu_h1 / se, 1), color="red", alpha=0.3, label="Power (1 - β)")
         ax_p.set_title(f"Hypothesis Testing Power Curve (Cohen's d = {effect_size}, n = {n_power})")

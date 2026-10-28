@@ -22,6 +22,9 @@ data/processed/*
 !data/processed/.gitkeep
 
 # Reports figures can be kept or generated, but let's allow reports/figures/
+# Streamlit local configurations
+.streamlit/secrets.toml
+
 # Distribution / packaging
 build/
 dist/

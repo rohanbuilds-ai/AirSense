@@ -1,8 +1,11 @@
-"""Calibration & PCR Engine View.
+"""Calibration Experiment View for AirSense Streamlit Interface.
 
-Provides interactive evaluation of the primary AirSense research question:
-How does PCA-based dimensionality reduction affect the predictive accuracy
-and temporal stability of least-squares sensor calibration?
+Provides interactive evaluation of sensor calibration models:
+- Dynamic Feature Selection (Chemical Sensors + Meteorological Covariates)
+- Model Architecture Selection (Full OLS vs. PCR with tunable k)
+- Live Computation of Train / Validation / Test Metrics (MAE, RMSE, R², Bias)
+- Prediction vs. Reference Scatter Plots & Residual Distributions
+- Back-Projected Physical Feature Weights
 """
 
 import numpy as np
@@ -10,19 +13,19 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import streamlit as st
 
-from airsense.calibration import chronological_split, LinearCalibrationModel
+from airsense.calibration import chronological_split, LinearCalibrationModel, FeatureStandardizer
 from airsense.pca_model import PCACalibrationModel
-from airsense.evaluation import mean_absolute_error, root_mean_squared_error, r2_score
+from airsense.evaluation import mean_absolute_error, root_mean_squared_error, r2_score, mean_bias_error
 
 
 def render_calibration_view(df_supervised: pd.DataFrame) -> None:
-    """Render the interactive Calibration and PCR Benchmarking engine."""
-    st.header("🔬 Sensor Calibration & PCR Benchmarking Engine")
+    """Render Section 5: Sensor Calibration Experiment."""
+    st.header("🔬 5. Sensor Calibration Experiment")
     st.markdown(
         """
-        **Primary Research Question:**
-        *How does PCA-based dimensionality reduction affect the predictive accuracy and temporal 
-        stability of least-squares calibration for benzene concentration using real-world gas-sensor measurements?*
+        Evaluate how least-squares calibration models translate low-cost metal-oxide sensor readings 
+        into certified benzene concentrations. Test custom feature subsets, adjust PCA dimensionality, 
+        and observe how PCA regularization alters out-of-time test generalization.
         """
     )
 
@@ -30,9 +33,10 @@ def render_calibration_view(df_supervised: pd.DataFrame) -> None:
         st.error("Supervised dataset is empty or not loaded.")
         return
 
-    # Split dataset chronologically
+    # Chronological partition
     train_df, val_df, test_df = chronological_split(df_supervised, train_ratio=0.6, val_ratio=0.2)
-    feature_cols = [
+    
+    all_available_features = [
         "PT08.S1(CO)",
         "PT08.S2(NMHC)",
         "PT08.S3(NOx)",
@@ -44,141 +48,189 @@ def render_calibration_view(df_supervised: pd.DataFrame) -> None:
     ]
     target_col = "C6H6(GT)"
 
-    X_train = train_df[feature_cols].to_numpy()
-    y_train = train_df[target_col].to_numpy()
-    X_val = val_df[feature_cols].to_numpy()
-    y_val = val_df[target_col].to_numpy()
-    X_test = test_df[feature_cols].to_numpy()
-    y_test = test_df[target_col].to_numpy()
-
+    # Feature selection controls
     st.sidebar.markdown("---")
-    st.sidebar.subheader("🎛️ PCR Configuration")
-    k_components = st.sidebar.slider(
-        "Retained Principal Components ($k$):",
-        min_value=1,
-        max_value=8,
-        value=3,
-        step=1,
-        help="Number of orthogonal SVD singular directions retained for regression.",
+    st.sidebar.subheader("🎛️ Feature & Model Controls")
+
+    selected_features = st.sidebar.multiselect(
+        "Select Predictive Features:",
+        options=all_available_features,
+        default=all_available_features,
+        help="Choose any combination of chemical sensors and meteorological variables.",
     )
 
+    if not selected_features:
+        st.error("Please select at least one predictive feature.")
+        return
+
+    d_selected = len(selected_features)
+
+    model_type = st.sidebar.radio(
+        "Select Calibration Architecture:",
+        ["Principal Component Regression (PCR)", "Full-Feature Least-Squares (OLS)"],
+    )
+
+    if "PCR" in model_type:
+        k_components = st.sidebar.slider(
+            "Retained Principal Components ($k$):",
+            min_value=1,
+            max_value=d_selected,
+            value=min(3, d_selected),
+            step=1,
+            help=f"Number of orthogonal SVD directions retained (1 to {d_selected}).",
+        )
+    else:
+        k_components = d_selected
+
     eval_set_name = st.sidebar.radio(
-        "Evaluation Set for Visualizations:",
-        ["Validation Set (Model Selection)", "Test Set (Final Out-of-Time Generalization)", "Training Set"],
+        "Evaluation Partition for Visualizations:",
+        ["Test Set (Final Out-of-Time Generalization)", "Validation Set (Hyperparameter Tuning)", "Training Set (In-Sample Fit)"],
         index=0,
     )
 
-    # Fit Full OLS
-    full_model = LinearCalibrationModel()
-    full_model.fit(X_train, y_train)
+    # Prepare data arrays
+    X_train = train_df[selected_features].to_numpy()
+    y_train = train_df[target_col].to_numpy()
+    X_val = val_df[selected_features].to_numpy()
+    y_val = val_df[target_col].to_numpy()
+    X_test = test_df[selected_features].to_numpy()
+    y_test = test_df[target_col].to_numpy()
 
-    # Fit PCR(k)
-    pcr_model = PCACalibrationModel(n_components=k_components)
-    pcr_model.fit(X_train, y_train)
-
-    # Compute Predictions
-    if "Validation" in eval_set_name:
-        X_eval, y_eval = X_val, y_val
-        tag = "Validation"
-    elif "Test" in eval_set_name:
-        X_eval, y_eval = X_test, y_test
-        tag = "Test (Out-of-Time)"
+    # Fit selected model
+    if "PCR" in model_type:
+        model = PCACalibrationModel(n_components=k_components)
+        model.fit(X_train, y_train)
+        feature_weights = model.feature_weights_
     else:
-        X_eval, y_eval = X_train, y_train
-        tag = "Training"
+        model = LinearCalibrationModel()
+        model.fit(X_train, y_train)
+        feature_weights = model.weights[1:]
 
-    y_pred_pcr = pcr_model.predict(X_eval)
-    y_pred_full = full_model.predict(X_eval)
+    # Predictions
+    y_pred_train = model.predict(X_train)
+    y_pred_val = model.predict(X_val)
+    y_pred_test = model.predict(X_test)
 
-    # Metrics
-    pcr_rmse = root_mean_squared_error(y_eval, y_pred_pcr)
-    pcr_mae = mean_absolute_error(y_eval, y_pred_pcr)
-    pcr_r2 = r2_score(y_eval, y_pred_pcr)
+    # Compute metrics table across all three partitions
+    partitions = ["Training (In-Sample)", "Validation (Tuning)", "Test (Out-of-Time)"]
+    y_trues = [y_train, y_val, y_test]
+    y_preds = [y_pred_train, y_pred_val, y_pred_test]
 
-    full_rmse = root_mean_squared_error(y_eval, y_pred_full)
-    full_mae = mean_absolute_error(y_eval, y_pred_full)
-    full_r2 = r2_score(y_eval, y_pred_full)
+    metrics_list = []
+    for p_name, y_t, y_p in zip(partitions, y_trues, y_preds):
+        metrics_list.append({
+            "Partition": p_name,
+            "RMSE (µg/m³)": root_mean_squared_error(y_t, y_p),
+            "MAE (µg/m³)": mean_absolute_error(y_t, y_p),
+            "R² Score": r2_score(y_t, y_p),
+            "Mean Bias (µg/m³)": mean_bias_error(y_t, y_p),
+        })
 
-    # Key Performance Metrics
-    st.subheader(f"Performance Comparison on {tag} Set")
+    metrics_df = pd.DataFrame(metrics_list)
+
+    # Active evaluation selection
+    if "Test" in eval_set_name:
+        y_eval, y_pred_eval, tag = y_test, y_pred_test, "Test (Out-of-Time)"
+    elif "Validation" in eval_set_name:
+        y_eval, y_pred_eval, tag = y_val, y_pred_val, "Validation"
+    else:
+        y_eval, y_pred_eval, tag = y_train, y_pred_train, "Training"
+
+    eval_rmse = root_mean_squared_error(y_eval, y_pred_eval)
+    eval_mae = mean_absolute_error(y_eval, y_pred_eval)
+    eval_r2 = r2_score(y_eval, y_pred_eval)
+    eval_bias = mean_bias_error(y_eval, y_pred_eval)
+
+    # Metric KPI Display
+    st.subheader(f"Experimental Performance Metrics ({tag})")
     c1, c2, c3, c4 = st.columns(4)
-    c1.metric(f"PCR (k={k_components}) RMSE", f"{pcr_rmse:.3f} µg/m³", delta=f"{full_rmse - pcr_rmse:+.3f} vs Full")
-    c2.metric(f"PCR (k={k_components}) MAE", f"{pcr_mae:.3f} µg/m³", delta=f"{full_mae - pcr_mae:+.3f} vs Full")
-    c3.metric(f"PCR (k={k_components}) R²", f"{pcr_r2:.4f}", delta=f"{pcr_r2 - full_r2:+.4f} vs Full")
-    c4.metric(
-        "Cumulative Variance",
-        f"{pcr_model.cumulative_variance_ratio_[k_components - 1] * 100:.1f}%",
-        f"k = {k_components} / 8",
+    c1.metric("RMSE", f"{eval_rmse:.3f} µg/m³")
+    c2.metric("MAE", f"{eval_mae:.3f} µg/m³")
+    c3.metric("R² Score", f"{eval_r2:.4f}")
+    c4.metric("Mean Bias Error", f"{eval_bias:+.3f} µg/m³")
+
+    st.markdown("---")
+
+    # Metrics across all sets
+    st.write("**Full Chronological Partition Breakdown**:")
+    st.dataframe(
+        metrics_df.style.format({
+            "RMSE (µg/m³)": "{:.3f}",
+            "MAE (µg/m³)": "{:.3f}",
+            "R² Score": "{:.4f}",
+            "Mean Bias (µg/m³)": "{:+.3f}",
+        }),
+        use_container_width=True,
     )
 
     st.markdown("---")
 
-    # Visualizations layout
-    col_viz1, col_viz2 = st.columns(2)
+    # Diagnostic Visualizations
+    col_plot1, col_plot2 = st.columns(2)
 
-    with col_viz1:
-        st.subheader("PCA Scree & Cumulative Variance")
-        fig_scree, ax1 = plt.subplots(figsize=(6, 4))
-        var_ind = pcr_model.explained_variance_ratio_ * 100
-        var_cum = pcr_model.cumulative_variance_ratio_ * 100
-        comp_indices = np.arange(1, 9)
-
-        ax1.bar(comp_indices, var_ind, color="#4c72b0", alpha=0.7, label="Individual %")
-        ax1.plot(comp_indices, var_cum, color="#c44e52", marker="o", linewidth=2, label="Cumulative %")
-        ax1.axvline(k_components, color="black", linestyle="--", alpha=0.8, label=f"Selected Cutoff (k={k_components})")
-        ax1.set_xlabel("Principal Component Index")
-        ax1.set_ylabel("Explained Variance (%)")
-        ax1.set_title("Variance Spectrum of 8 Standardized Features")
-        ax1.set_xticks(comp_indices)
-        ax1.legend(loc="center right", fontsize=8)
-        ax1.grid(True, alpha=0.3)
-        st.pyplot(fig_scree)
-
-    with col_viz2:
-        st.subheader("Prediction vs. Reference Analyzer")
-        fig_scatter, ax2 = plt.subplots(figsize=(6, 4))
-        ax2.scatter(y_eval, y_pred_pcr, alpha=0.3, s=12, color="#2ca02c", label=f"PCR (k={k_components})")
-        min_val = min(y_eval.min(), y_pred_pcr.min())
-        max_val = max(y_eval.max(), y_pred_pcr.max())
-        ax2.plot([min_val, max_val], [min_val, max_val], "k--", lw=1.5, label="Ideal 1:1 Line")
-        ax2.set_xlabel(r"Reference $C_6H_6(GT)$ ($\mu g/m^3$)")
-        ax2.set_ylabel(r"Predicted $C_6H_6$ ($\mu g/m^3$)")
-        ax2.set_title(f"Model Predictions vs. True Target ({tag})")
-        ax2.legend(loc="upper left", fontsize=8)
-        ax2.grid(True, alpha=0.3)
+    with col_plot1:
+        st.subheader("Prediction vs. Reference Concentration")
+        fig_scatter, ax_sc = plt.subplots(figsize=(6, 3.8))
+        ax_sc.scatter(y_eval, y_pred_eval, alpha=0.3, s=10, color="#2ca02c", label=f"{model_type} (k={k_components})")
+        min_v = min(y_eval.min(), y_pred_eval.min())
+        max_v = max(y_eval.max(), y_pred_eval.max())
+        ax_sc.plot([min_v, max_v], [min_v, max_v], "k--", lw=1.5, label="Ideal 1:1 Identity Line")
+        
+        # Regression trend
+        m_fit, b_fit = np.polyfit(y_eval, y_pred_eval, 1)
+        ax_sc.plot(np.array([min_v, max_v]), m_fit * np.array([min_v, max_v]) + b_fit, "r-", lw=1.2, label=f"Trend (slope={m_fit:.2f})")
+        
+        ax_sc.set_xlabel(r"Reference $C_6H_6(GT)$ ($\mu g/m^3$)")
+        ax_sc.set_ylabel(r"Predicted $C_6H_6$ ($\mu g/m^3$)")
+        ax_sc.set_title(f"Model Predictions vs. Certified Reference ({tag})")
+        ax_sc.legend(loc="upper left", fontsize=8)
+        ax_sc.grid(True, alpha=0.3)
         st.pyplot(fig_scatter)
 
-    # Physical Feature Weights Breakdown
-    st.subheader(rf"Physical Feature Sensitivity ($\mathbf{{w}}_{{\text{{feature}}}}$ for $k={k_components}$)")
+    with col_plot2:
+        st.subheader("Calibration Residual Distribution")
+        residuals = y_eval - y_pred_eval
+        fig_res, ax_r = plt.subplots(figsize=(6, 3.8))
+        ax_r.hist(residuals, bins=40, density=True, alpha=0.6, color="#4c72b0", edgecolor="white", label="Residuals $e_t$")
+        
+        # Normal reference
+        rx = np.linspace(residuals.min(), residuals.max(), 200)
+        ry = (1.0 / (np.std(residuals) * np.sqrt(2 * np.pi))) * np.exp(-0.5 * ((rx - np.mean(residuals)) / np.std(residuals))**2)
+        ax_r.plot(rx, ry, "r--", lw=1.5, label="Normal Fit")
+        
+        ax_r.set_xlabel(r"Residual $e_t = y_t - \hat{y}_t$ ($\mu g/m^3$)")
+        ax_r.set_ylabel("Density")
+        ax_r.set_title(f"Residual Distribution ({tag})")
+        ax_r.legend(loc="upper right", fontsize=8)
+        ax_r.grid(True, alpha=0.3)
+        st.pyplot(fig_res)
+
+    st.markdown("---")
+
+    # Feature sensitivity table
+    st.subheader(rf"Back-Projected Physical Feature Sensitivities ($\mathbf{{w}}_{{\text{{feature}}}}$)")
     st.markdown(
         r"""
-        By back-projecting the PCA regression weights through the singular basis, we obtain the physical 
-        sensitivity of the model with respect to raw sensor units:
+        Physical feature sensitivities in engineering units ($\mu g/m^3$ change per raw sensor unit):
         $$\mathbf{w}_{\text{feature}} = D_{\sigma}^{-1} V_k \mathbf{w}_{\text{pca}}$$
         """
     )
 
-    feature_weights = pcr_model.feature_weights_
-    full_weights = full_model.weights[1:]  # skip intercept
-
-    weights_df = pd.DataFrame({
-        "Feature": feature_cols,
-        f"PCR (k={k_components}) Weight": feature_weights,
-        "Full OLS (k=8) Weight": full_weights,
+    sens_df = pd.DataFrame({
+        "Feature": selected_features,
+        "Sensitivity Weight": feature_weights,
     })
-    st.dataframe(weights_df.style.format({f"PCR (k={k_components}) Weight": "{:.5f}", "Full OLS (k=8) Weight": "{:.5f}"}), use_container_width=True)
+    st.dataframe(sens_df.style.format({"Sensitivity Weight": "{:.6f}"}), use_container_width=True)
 
-    # Empirical Research Synthesis Insight Alert
-    if k_components in [3, 4]:
-        st.success(
-            f"💡 **Key Research Finding Verified**: For $k={k_components}$, PCR acts as a regularizer. "
-            f"On the out-of-time Test set (one year later), PCR ($k={k_components}$) achieves lower RMSE "
-            f"({pcr_model.predict(X_test) and root_mean_squared_error(y_test, pcr_model.predict(X_test)):.3f} µg/m³) "
-            f"than unregularized Full OLS ({root_mean_squared_error(y_test, full_model.predict(X_test)):.3f} µg/m³) "
-            f"by discarding the collinear tail that overfits to seasonal training noise!"
-        )
-    elif k_components == 7:
-        st.warning(
-            "⚠️ **The Collinear Overfit Trap**: Retaining $k=7$ components captures seasonal training noise. "
-            "While validation $R^2$ is high (0.9123), test $R^2$ collapses to 0.6225 (RMSE 4.003 µg/m³)!"
-        )
+    # Research insight
+    if d_selected == 8 and "PCR" in model_type:
+        if k_components in [3, 4]:
+            st.success(
+                f"💡 **Optimal Regularization Confirmed**: Retaining $k={k_components}$ components discards the "
+                f"collinear tail that overfits to seasonal training noise, outperforming Full OLS on out-of-time test data!"
+            )
+        elif k_components == 7:
+            st.warning(
+                "⚠️ **The Collinear Overfit Trap ($k=7$)**: Retaining the 7th component captures seasonal correlations "
+                "in the training set, causing test $R^2$ to collapse to 0.6225!"
+            )

@@ -460,3 +460,28 @@ def test_airsense_real_data_mathematical_pipeline() -> None:
     assert pca_res["cumulative_variance_ratio"][3] > 0.85
     # Eckart-Young error matches theoretical singular value tail
     assert pca_res["reconstruction_error"] == pytest.approx(pca_res["theoretical_error"], rel=1e-8)
+
+
+def test_column_space_properties():
+    """Verify column space basis extraction via RREF pivot columns and SVD."""
+    from airsense.math_core import column_space, matrix_rank
+
+    A = np.array([
+        [1.0, 2.0, 3.0, 4.0],
+        [2.0, 4.0, 6.0, 8.0],
+        [1.0, 0.0, 1.0, 2.0],
+    ])
+    r = matrix_rank(A)
+    assert r == 2
+
+    # Pivot method
+    col_basis_pivot = column_space(A, method="pivot")
+    assert col_basis_pivot.shape == (3, 2)
+    # Verify rank of basis is 2
+    assert matrix_rank(col_basis_pivot) == 2
+
+    # SVD method
+    col_basis_svd = column_space(A, method="svd")
+    assert col_basis_svd.shape == (3, 2)
+    assert np.allclose(col_basis_svd.T @ col_basis_svd, np.eye(2), atol=1e-12)
+

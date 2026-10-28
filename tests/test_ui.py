@@ -5,6 +5,7 @@ import pandas as pd
 import pytest
 from airsense.ui.app import load_datasets
 from airsense.ui.views.drift_view import compute_cusum
+from airsense.ui import views
 
 
 def test_ui_load_datasets():
@@ -29,3 +30,20 @@ def test_compute_cusum_logic():
     # Positive excursion should trip alarms after step 50
     assert len(alarms_pos) > 0
     assert alarms_pos[0] >= 50
+
+
+def test_all_ui_views_callable():
+    """Verify all 8 view renderers are imported and callable."""
+    expected_renderers = [
+        "render_overview_view",
+        "render_data_explorer_view",
+        "render_math_lab_view",
+        "render_pca_explorer_view",
+        "render_calibration_view",
+        "render_drift_view",
+        "render_inference_view",
+        "render_methodology_view",
+    ]
+    for renderer_name in expected_renderers:
+        assert hasattr(views, renderer_name)
+        assert callable(getattr(views, renderer_name))

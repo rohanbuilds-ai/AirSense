@@ -348,6 +348,43 @@ def null_space(A: np.ndarray, tol: float | None = None, method: str = "svd") -> 
     return null_basis
 
 
+def column_space(A: np.ndarray, tol: float | None = None, method: str = "pivot") -> np.ndarray:
+    """Compute a basis for the column space C(A).
+
+    Parameters
+    ----------
+    A : np.ndarray
+        Matrix of shape (m, n).
+    tol : float | None, default=None
+        Tolerance for pivot detection.
+    method : str, default='pivot'
+        'pivot' selects the pivot columns of the original matrix A.
+        'svd' returns the left singular vectors U[:, :r].
+
+    Returns
+    -------
+    np.ndarray
+        Basis matrix of shape (m, rank), where each column is a basis vector.
+    """
+    A_mat = np.asarray(A, dtype=np.float64)
+    if A_mat.size == 0:
+        return np.empty((A_mat.shape[0], 0), dtype=np.float64)
+
+    m, n = A_mat.shape
+    if method == "svd":
+        U, s, _ = np.linalg.svd(A_mat, full_matrices=False)
+        if tol is None:
+            tol = max(m, n) * float(np.finfo(np.float64).eps) * (s[0] if len(s) > 0 else 1.0)
+        r = int(np.sum(s > tol))
+        return U[:, :r]
+
+    # Default 'pivot' method via RREF
+    _, pivots = rref(A_mat, tol=tol or 1e-12)
+    if len(pivots) == 0:
+        return np.empty((m, 0), dtype=np.float64)
+    return A_mat[:, pivots]
+
+
 def verify_rank_nullity(A: np.ndarray, tol: float | None = None) -> dict[str, Any]:
     """Verify the fundamental Rank-Nullity Theorem: rank(A) + nullity(A) = n.
 
