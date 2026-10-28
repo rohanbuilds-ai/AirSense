@@ -21,6 +21,9 @@ dependencies = [
 [project.optional-dependencies]
 dev = [
     "pytest>=7.0.0",
+    "nbformat>=5.2.0",
+    "nbclient>=0.10.0",
+    "ipykernel>=6.0.0",
 ]
 
 [tool.setuptools.packages.find]

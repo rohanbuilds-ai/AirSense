@@ -152,8 +152,10 @@ def run_experiments() -> None:
     print(f"\n[6] FINAL UNTOUCHED OUT-OF-TIME TEST SET EVALUATION:")
     val_pred_best = best_pcr.predict(X_val)
     test_pred_best = best_pcr.predict(X_test)
-
     eval_test_best = evaluate_predictions(y_test, test_pred_best)
+
+    test_pred_k3 = pcr_models[3].predict(X_test)
+    eval_test_k3 = evaluate_predictions(y_test, test_pred_k3)
 
     comparison_records = [
         {
@@ -181,7 +183,7 @@ def run_experiments() -> None:
             "Test_RMSE": round(pcr_df.loc[2, "Test_RMSE"], 4),
             "Test_MAE": round(pcr_df.loc[2, "Test_MAE"], 4),
             "Test_R2": round(pcr_df.loc[2, "Test_R2"], 4),
-            "Test_MBE": round(pcr_df.loc[2, "Test_RMSE"], 4),  # placeholder
+            "Test_MBE": round(eval_test_k3["mbe"], 4),
         },
     ]
     comp_df = pd.DataFrame(comparison_records)

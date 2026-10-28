@@ -124,7 +124,7 @@ $$\mathbf{Concept} \longrightarrow \mathbf{Purpose} \longrightarrow \mathbf{Outc
 - **Purpose**:  
   To compress $8$ correlated sensor channels into $k < 8$ uncorrelated components that capture maximal variance while filtering out collinear noise.
 - **Outcome**:  
-  First 3 components capture $94.04\%$ of total sensor variance ($k=1$: $55.89\%$, $k=2$: $22.19\%$, $k=3$: $15.96\%$). Principal Component Regression (PCR) using $k=3$ outperforms Full OLS out-of-time ($\text{Test } R^2 = 0.8626$ vs. $0.8079$).
+  First 3 components capture $94.04\%$ of total sensor variance ($k=1$: $55.89\%$, $k=2$: $22.19\%$, $k=3$: $15.96\%$). Under the validation selection protocol, $k^*=8$ (Full OLS) was selected ($\text{Val RMSE} = 2.024\ \mu g/m^3$). Post-hoc evaluation on the test set showed $k=3$ achieved lower out-of-time test error ($\text{Test } R^2 = 0.8626$ vs. $0.8079$), demonstrating the regularizing effect of PCA against seasonal drift.
 
 ---
 

@@ -55,6 +55,10 @@ class ChronologicalSplit:
             "test_window": (self.test_start, self.test_end),
         }
 
+    def __iter__(self):
+        """Allow tuple unpacking: train_df, val_df, test_df = split."""
+        return iter((self.train_df, self.val_df, self.test_df))
+
 
 def chronological_split(
     df: pd.DataFrame,

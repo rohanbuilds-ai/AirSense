@@ -112,12 +112,13 @@ $$\mathbf{Concept} \longrightarrow \mathbf{Purpose} \longrightarrow \mathbf{Outc
 
 ---
 
-### Q11: Why does PCR with $k=3$ or $k=4$ outperform Full OLS ($k=8$) on the out-of-time test set?
+### Q11: Which model was selected by your validation protocol, and why does PCR with $k=3$ or $k=4$ perform better on the out-of-time test set?
 - **Model Answer**:
-  - **In-Sample / Short-Term**: Full OLS achieves the highest training fit ($R^2 = 0.9826$) and validation fit ($R^2 = 0.9423$) because chemical cross-sensitivity information is distributed across all 5 metal-oxide sensors.
-  - **Out-of-Time Generalization (1 Year Later)**: Full OLS degrades to $\text{Test } R^2 = 0.8079$ ($\text{RMSE} = 2.855\ \mu g/m^3$).
-  - **PCR Regularization**: PCR with $k=3$ achieves $\text{Test } R^2 = \mathbf{0.8626}$ ($\text{RMSE} = \mathbf{2.415\ \mu g/m^3}$)—a **$15.4\%$ error reduction**.
-  - **Reason**: The last 4–5 principal components capture subtle, high-frequency noise and seasonal temperature correlations in the training set. Discarding them regularizes the model, preventing it from overfitting to transient seasonal conditions.
+  - **Selected Model ($k^* = 8$)**: Under our strict validation protocol, hyperparameter selection was conducted strictly on the validation set (Oct 2004 – Jan 2005). The stated rule selected **Full OLS / PCR ($k^* = 8$)** because it minimized validation error ($\text{Val RMSE} = 2.024\ \mu g/m^3$, $\text{Val } R^2 = 0.9423$).
+  - **Out-of-Time Test Assessment**: When evaluated on the untouched out-of-time test set (Jan – Apr 2005), the selected model degraded to $\text{Test } R^2 = 0.8079$ ($\text{RMSE} = 2.855\ \mu g/m^3$).
+  - **Post-Hoc Regularization Finding**: Evaluating the full parameter sweep on the test set showed that compact models ($k=3$ and $k=4$) achieved lower test error ($\text{RMSE} = 2.415\ \mu g/m^3$, $R^2 = 0.8626$).
+  - **Scientific Explanation**: Discarding the trailing collinear components ($\sigma_7, \sigma_8$) acted as an implicit shrinkage regularizer. The trailing components fit transient seasonal interactions in the training data that inverted during the test period.
+  - **Methodological Nuance for Examiners**: In an honest academic defense, you must state that $k=3$ is a **post-hoc empirical observation**, not the validation-selected model. Calling $k=3$ the selected model based on test scores would constitute retrospective test-set leakage. Selecting $k=3$ in production would require a validation protocol that explicitly evaluates across seasonal cycles.
 
 ---
 

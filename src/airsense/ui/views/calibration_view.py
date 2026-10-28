@@ -225,12 +225,22 @@ def render_calibration_view(df_supervised: pd.DataFrame) -> None:
     # Research insight
     if d_selected == 8 and "PCR" in model_type:
         if k_components in [3, 4]:
+            st.info(
+                f"💡 **Post-Hoc Regularization Observation**: Under the stated validation selection protocol, "
+                f"$k^*=8$ (Full OLS) was selected because it achieved the lowest Validation RMSE ($2.024\\ \\mu g/m^3$). "
+                f"However, on the untouched out-of-time test set, retaining $k={k_components}$ components achieved lower error "
+                f"($\\text{{Test RMSE}} = {eval_rmse:.3f}\\ \\mu g/m^3$) by discarding the trailing collinear dimensions "
+                f"that overfit to seasonal training conditions. (Note: in operational practice, choosing $k={k_components}$ "
+                f"requires validating across seasonal cycles to avoid retrospective test leakage.)"
+            )
+        elif k_components == 8:
             st.success(
-                f"💡 **Optimal Regularization Confirmed**: Retaining $k={k_components}$ components discards the "
-                f"collinear tail that overfits to seasonal training noise, outperforming Full OLS on out-of-time test data!"
+                "✅ **Validation-Selected Configuration ($k^*=8$)**: This configuration achieved the lowest error on the "
+                "validation tuning set (Val RMSE = 2.024 µg/m³, Val R² = 0.9423). In full rank, PCR is mathematically "
+                "identical to Full OLS because both span the complete column space."
             )
         elif k_components == 7:
             st.warning(
-                "⚠️ **The Collinear Overfit Trap ($k=7$)**: Retaining the 7th component captures seasonal correlations "
-                "in the training set, causing test $R^2$ to collapse to 0.6225!"
+                "⚠️ **The Collinear Overfit Trap ($k=7$)**: Retaining the 7th component captures transient seasonal correlations "
+                "in the training set, causing out-of-time test $R^2$ to collapse to 0.6225!"
             )

@@ -17,14 +17,17 @@ Low-cost metal-oxide semiconductor (MOX) gas sensors offer continuous, high-dens
 > **How does PCA-based dimensionality reduction affect the predictive accuracy and temporal stability of least-squares calibration for benzene concentration using real-world gas-sensor measurements?**
 
 ### Key Empirical Findings
-- **Short-Term vs. Long-Term Tradeoff**:
-  - In-sample and short-term validation favor the **Full OLS Model ($k=8$)**, achieving $\text{Train } R^2 = 0.9826$ and $\text{Val } R^2 = 0.9423$ ($\text{RMSE} = 2.024\ \mu g/m^3$), because subtle chemical selectivity information is distributed across all 5 MOX sensors.
-  - However, when evaluated on the out-of-time Test partition **one year later**, Full OLS performance degrades substantially to $\text{Test } R^2 = 0.8079$ and $\text{RMSE} = 2.855\ \mu g/m^3$.
-- **PCR Regularization Outperforms Full OLS Out-of-Time**:
-  - Principal Component Regression with **$k = 3$ or $k = 4$ components** achieves superior generalization on the final test set:
-    $$\text{PCR } (k=3): \quad \text{Test } R^2 = \mathbf{0.8626}, \quad \text{Test RMSE} = \mathbf{2.415\ \mu g/m^3}$$
-    $$\text{Full OLS } (k=8): \quad \text{Test } R^2 = 0.8079, \quad \text{Test RMSE} = 2.855\ \mu g/m^3$$
-  - Discarding the last 4–5 principal components acts as an implicit shrinkage regularizer, eliminating the collinear directions that capture seasonal training noise.
+- **Validation Model Selection Protocol ($k^* = 8$ / Full OLS)**:
+  - In strict compliance with zero-leakage machine learning methodology, model selection was conducted exclusively on the validation set (October 2004 – January 2005).
+  - The stated validation selection procedure selected **Full OLS ($k^* = 8$)** as the optimal model ($\text{Val } R^2 = \mathbf{0.9423}$, $\text{Val RMSE} = \mathbf{2.024\ \mu g/m^3}$), because in the short term, subtle chemical selectivity is distributed across all 5 MOX sensors.
+  - Full-rank PCR ($k=8$) and Full OLS yield identical metrics because both span the exact same 8-dimensional column space.
+- **Untouched Out-of-Time Test Set Assessment ($1$ Year Later)**:
+  - Evaluated on the untouched out-of-time test partition (January – April 2005), the validation-selected model ($k^* = 8$) degraded to $\text{Test } R^2 = \mathbf{0.8079}$ ($\text{RMSE} = 2.855\ \mu g/m^3$, $\text{MBE} = -2.652\ \mu g/m^3$).
+- **Post-Hoc Empirical Observation: PCR Regularization ($k = 3, 4$)**:
+  - Examining the complete PCR parameter sweep on the test set reveals that compact representations ($k=3$ and $k=4$) achieved superior generalization:
+    $$\text{PCR } (k=3): \quad \text{Test } R^2 = \mathbf{0.8626}, \quad \text{Test RMSE} = \mathbf{2.415\ \mu g/m^3}, \quad \text{Test MBE} = \mathbf{+0.861\ \mu g/m^3}$$
+    $$\text{Full OLS } (k=8): \quad \text{Test } R^2 = 0.8079, \quad \text{Test RMSE} = 2.855\ \mu g/m^3, \quad \text{Test MBE} = -2.652\ \mu g/m^3$$
+  - **Methodological Distinction**: Compact PCR ($k=3$) is a **post-hoc empirical observation**, not the model selected by the validation rule. Truncating the trailing collinear directions ($\kappa(X) = 1.89 \times 10^4$) acted as an implicit shrinkage regularizer against seasonal shifts and sensor aging. Selecting $k=3$ legitimately in production would require seasonal cross-validation.
 - **The "Collinear Overfit Trap" ($k=7$)**:
   - Retaining $k=7$ components ($99.69\%$ variance) produces strong validation performance ($\text{Val } R^2 = 0.9123$), but collapses catastrophically on the out-of-time test set ($\text{Test } R^2 = \mathbf{0.6225}$, $\text{RMSE} = 4.003\ \mu g/m^3$). This proves that the 7th component encodes transient seasonal correlations between temperature and sensor resistance that invert over the annual cycle.
 - **Systemic Physical Sensor Drift**:
@@ -80,21 +83,22 @@ Because $Q$ has orthonormal columns, $\kappa(R) = \kappa(X) = 1.89 \times 10^4$,
 
 ### 4.1 Comparative Calibration Performance Across $k \in \{1, \dots, 8\}$
 
-| $k$ | Cum. Var (%) | Train RMSE ($\mu g/m^3$) | Train $R^2$ | Val RMSE ($\mu g/m^3$) | Val $R^2$ | **Test RMSE ($\mu g/m^3$)** | **Test $R^2$** |
-|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|
-| **1** | 55.89% | 2.439 | 0.8867 | 3.720 | 0.8052 | 3.211 | 0.7571 |
-| **2** | 78.08% | 2.427 | 0.8878 | 3.588 | 0.8188 | 3.103 | 0.7732 |
-| **3** | **94.04%** | **1.927** | **0.9292** | **2.826** | **0.8876** | **2.415** | **0.8626** |
-| **4** | **96.50%** | **1.858** | **0.9342** | **3.038** | **0.8701** | **2.380** | **0.8665** |
-| **5** | 98.01% | 1.741 | 0.9422 | 3.412 | 0.8362 | 2.817 | 0.8130 |
-| **6** | 99.23% | 1.728 | 0.9431 | 3.371 | 0.8401 | 2.978 | 0.7910 |
-| **7** | 99.69% | 1.143 | 0.9751 | 2.496 | 0.9123 | 4.003 | 0.6225 |
-| **8 (Full)** | 100.00% | 0.955 | 0.9826 | 2.024 | 0.9423 | 2.855 | 0.8079 |
+| $k$ | Cum. Var (%) | Train RMSE ($\mu g/m^3$) | Train $R^2$ | Val RMSE ($\mu g/m^3$) | Val $R^2$ | **Test RMSE ($\mu g/m^3$)** | **Test $R^2$** | Protocol Role |
+|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---|
+| **1** | 55.89% | 2.439 | 0.8867 | 3.720 | 0.8052 | 3.211 | 0.7571 | Underfit baseline |
+| **2** | 78.08% | 2.427 | 0.8878 | 3.588 | 0.8188 | 3.103 | 0.7732 | Underfit baseline |
+| **3** | 94.04% | 1.927 | 0.9292 | 2.826 | 0.8876 | **2.415** | **0.8626** | Post-hoc regularized |
+| **4** | 96.50% | 1.858 | 0.9342 | 3.038 | 0.8701 | **2.380** | **0.8665** | Post-hoc regularized |
+| **5** | 98.01% | 1.741 | 0.9422 | 3.412 | 0.8362 | 2.817 | 0.8130 | Sub-optimal |
+| **6** | 99.23% | 1.728 | 0.9431 | 3.371 | 0.8401 | 2.978 | 0.7910 | Sub-optimal |
+| **7** | 99.69% | 1.143 | 0.9751 | 2.496 | 0.9123 | 4.003 | 0.6225 | Collinear overfit trap |
+| **8 (Full)** | **100.00%** | **0.955** | **0.9826** | **2.024** | **0.9423** | **2.855** | **0.8079** | **Validation-Selected ($k^*$)** |
 
 ### 4.2 Key Insights from the Empirical Matrix
-1. **Variance vs. Relevance**: The first principal component ($k=1$) explains $55.89\%$ of total feature variance, yet yields an inadequate test $R^2$ of $0.7571$. Chemical specificity requires at least 3 components ($94.04\%$ variance).
-2. **Optimal Tradeoff at $k=3$ and $k=4$**: Retaining 3 or 4 components yields the lowest generalization error on the final test set ($\text{RMSE} = 2.415$ and $2.380\ \mu g/m^3$, $R^2 = 0.8626$ and $0.8665$), outperforming Full OLS ($\text{RMSE} = 2.855\ \mu g/m^3$, $R^2 = 0.8079$).
-3. **The Danger of High Dimensionality ($k=7$)**: Retaining the 7th component cuts training RMSE almost in half ($1.728 \to 1.143$) and improves validation $R^2$ ($0.8401 \to 0.9123$). However, out-of-time test accuracy collapses to $R^2 = 0.6225$. In low-signal spectral dimensions, the model fits seasonal noise.
+1. **Model Selection on Validation Data**: The stated validation protocol strictly selects $k^*=8$ (Full OLS) because it minimizes validation RMSE ($2.024\ \mu g/m^3$, $R^2 = 0.9423$). In full rank, PCR and OLS are algebraically identical.
+2. **Untouched Test Benchmark**: Evaluated on the out-of-time test set, $k^*=8$ degrades to Test RMSE $2.855\ \mu g/m^3$ ($R^2 = 0.8079$, $\text{MBE} = -2.652\ \mu g/m^3$).
+3. **Post-Hoc Generalization Finding ($k=3, 4$)**: Retaining 3 or 4 components yields the lowest test error ($\text{RMSE} = 2.415$ and $2.380\ \mu g/m^3$, $R^2 = 0.8626$ and $0.8665$), outperforming Full OLS on test data. However, $k=3$ is a post-hoc empirical observation, not the validation-selected model. It reveals that truncating trailing collinear dimensions prevents overfitting to seasonal training interactions.
+4. **The Danger of High Dimensionality ($k=7$)**: Retaining the 7th component cuts training RMSE ($1.728 \to 1.143$) and improves validation $R^2$ ($0.8401 \to 0.9123$). However, out-of-time test accuracy collapses to $R^2 = 0.6225$. In low-signal spectral dimensions, the model fits seasonal noise.
 
 ---
 

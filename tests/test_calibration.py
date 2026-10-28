@@ -59,6 +59,12 @@ def test_chronological_split_strict_ordering() -> None:
     assert split.test_start == dates[80]
     assert split.test_end == dates[99]
 
+    # 4. Tuple unpacking support
+    tr, va, te = split
+    assert len(tr) == 60
+    assert len(va) == 20
+    assert len(te) == 20
+
 
 def test_chronological_split_invalid_ratios_raises() -> None:
     """Ensure ValueError is raised if partition ratios do not sum to 1.0."""
