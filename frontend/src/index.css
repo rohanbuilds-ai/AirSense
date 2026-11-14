@@ -1,0 +1,65 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-[#F8FAFC] text-slate-800 font-sans antialiased selection:bg-teal-500/20 selection:text-teal-900;
+  }
+
+  /* Accessible focus indicators */
+  :focus-visible {
+    @apply outline-none ring-2 ring-teal-500/50 ring-offset-2 ring-offset-white;
+  }
+}
+
+/* Technical grid patterns for hero surfaces */
+.bg-tech-grid {
+  background-size: 24px 24px;
+  background-image: 
+    linear-gradient(to right, rgba(255, 255, 255, 0.04) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(255, 255, 255, 0.04) 1px, transparent 1px);
+}
+
+.bg-dot-grid {
+  background-size: 20px 20px;
+  background-image: radial-gradient(circle, rgba(148, 163, 184, 0.15) 1px, transparent 1px);
+}
+
+/* Shimmer keyframe for skeleton loaders */
+@keyframes shimmer {
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+/* Custom subtle scrollbars for dense data tables */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: #F1F5F9;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #CBD5E1;
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #94A3B8;
+}
+
+/* Respect reduced motion preferences across all animations */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  ::before,
+  ::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

@@ -29,3 +29,10 @@ data/processed/*
 build/
 dist/
 *.egg-info/
+
+# Frontend (Node / Vite)
+frontend/node_modules/
+frontend/dist/
+frontend/.vite/
+frontend/*.local
+.eslintcache

@@ -217,40 +217,47 @@ Returns the complete eigenvalue spectrum, cumulative variance curve, and Eckart-
 #### `POST /api/v1/calibration/run`
 Fits a user-configured calibration model (custom feature subset, choice of Full OLS vs. PCR with $k$ components) and returns partition metrics, scatter plot points, residual histograms, and back-projected feature weights.
 - **Python Backend Call**: `airsense.calibration.chronological_split` $\to$ `airsense.calibration.LinearCalibrationModel` or `airsense.pca_model.PCACalibrationModel` $\to$ `airsense.evaluation.evaluate_predictions`
+- **Zero Data Leakage Rule**: Fits strictly on 5,394 training hours; evaluates dynamically on 1,798 validation hours. The final 1,799-hour test partition remains sealed.
 - **Request Body**:
 ```json
 {
-  "features": ["PT08.S1(CO)", "PT08.S2(NMHC)", "PT08.S3(NOx)", "PT08.S4(NO2)", "PT08.S5(O3)", "T", "RH", "AH"],
   "model_type": "PCR",
-  "k_components": 3,
-  "train_ratio": 0.6,
-  "val_ratio": 0.2
+  "selected_features": ["PT08.S1(CO)", "PT08.S2(NMHC)", "PT08.S3(NOx)", "PT08.S4(NO2)", "PT08.S5(O3)", "T", "RH", "AH"],
+  "k_components": 3
 }
 ```
 - **Response Body**:
 ```json
 {
-  "model_configuration": {
-    "model_type": "PCR",
-    "k_components": 3,
-    "feature_count": 8
-  },
-  "metrics": {
-    "training": {"rmse": 1.9274, "mae": 1.3412, "r2": 0.9292, "mbe": 0.0000},
-    "validation": {"rmse": 2.8258, "mae": 1.8805, "r2": 0.8876, "mbe": -0.4215},
-    "test": {"rmse": 2.4146, "mae": 1.9375, "r2": 0.8626, "mbe": 0.8612}
-  },
+  "experiment_id": "exp_pcr_8f_k3",
+  "model_type": "PCR",
+  "selected_features": ["PT08.S1(CO)", "PT08.S2(NMHC)", "PT08.S3(NOx)", "PT08.S4(NO2)", "PT08.S5(O3)", "T", "RH", "AH"],
+  "k_components": 3,
+  "feature_count": 8,
+  "train_metrics": {"rmse": 1.9274, "mae": 1.3412, "r2": 0.9292, "mbe": 0.0000},
+  "val_metrics": {"rmse": 2.8258, "mae": 1.8805, "r2": 0.8876, "mbe": -0.4215},
   "feature_sensitivities": [
     {"feature": "PT08.S1(CO)", "weight": 0.003412, "unit": "ug/m3 per sensor_unit"},
     {"feature": "PT08.S2(NMHC)", "weight": 0.018945, "unit": "ug/m3 per sensor_unit"}
   ],
-  "diagnostics": {
-    "durbin_watson": 0.2062,
-    "autocorrelation_rho": 0.8969
+  "intercept": 10.0827,
+  "pca_variance": [
+    {"k": 1, "variance_pct": 55.89, "cum_variance_pct": 55.89},
+    {"k": 2, "variance_pct": 22.19, "cum_variance_pct": 78.08},
+    {"k": 3, "variance_pct": 15.96, "cum_variance_pct": 94.04}
+  ],
+  "scatter_sample": [{"timestamp": "2004-10-27 16:00", "actual": 11.2, "predicted": 10.8, "residual": 0.4}],
+  "timeline_sample": [{"timestamp": "2004-10-27 16:00", "actual": 11.2, "predicted": 10.8}],
+  "residuals_distribution": [{"bin_start": -8.5, "bin_end": -7.5, "bin_center": -8.0, "count": 12, "density": 0.0067, "normal_density": 0.0051}],
+  "split_info": {
+    "training_rows": 5394,
+    "validation_rows": 1798,
+    "test_partition": "FROZEN (1,799 hours out-of-time benchmark strictly preserved)"
   },
+  "warnings": [],
   "scientific_notice": {
-    "validation_selected_model": "k*=8 (Full OLS, Val RMSE=2.0242)",
-    "interpretation": "k=3 is a post-hoc regularized observation demonstrating out-of-time stability against sensor drift."
+    "validation_protocol": "Model weights fitted strictly on 5,394 training hours and evaluated on 1,798 validation hours.",
+    "test_freeze_rule": "Final test partition (1,799 hours) remains completely sealed during interactive tuning."
   }
 }
 ```
